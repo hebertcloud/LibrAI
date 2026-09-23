@@ -26,7 +26,7 @@
 🚧 **In Active Development** 🚧
 
 Currently working on:
-- [X] Collecting and mapping sign data.
+- [x] Collecting and mapping sign data.
 - [ ] Training the computer vision model.
 - [ ] Building the user interface.
 
