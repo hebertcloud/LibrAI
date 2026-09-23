@@ -54,7 +54,7 @@ O **LibrAI** é um projeto de Inteligência Artificial voltado para a acessibili
 🚧 **Em Desenvolvimento Ativo** 🚧
 
 Atualmente trabalhando em:
-- [ ] Coleta e mapeamento de dados de sinais.
+- [x] Coleta e mapeamento de dados de sinais.
 - [ ] Treinamento do modelo de visão computacional.
 - [ ] Construção da interface do usuário.
 
