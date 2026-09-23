@@ -9,6 +9,8 @@
 ### 🚀 About the Project
 **LibrAI** is an AI-powered accessibility project designed to bridge the communication gap between Deaf and hearing communities. It leverages computer vision and machine learning models to recognize and translate Brazilian Sign Language (Libras) gestures in real time.
 
+> 🎓 Project developed in the **Technical Course in Information Technology** at **Instituto Federal da Bahia (IFBA) - Campus Euclides da Cunha**.
+
 ### 🛠️ Key Features
 - 🎥 **Gesture Recognition:** Captures sign language gestures via camera.
 - 💬 **Real-time Translation:** Converts Libras gestures into text/audio in real time.
@@ -24,7 +26,7 @@
 🚧 **In Active Development** 🚧
 
 Currently working on:
-- [ ] Collecting and mapping sign data.
+- [X] Collecting and mapping sign data.
 - [ ] Training the computer vision model.
 - [ ] Building the user interface.
 
@@ -34,6 +36,8 @@ Currently working on:
 
 ### 🚀 Sobre o Projeto
 O **LibrAI** é um projeto de Inteligência Artificial voltado para a acessibilidade. Ele utiliza modelos de visão computacional e aprendizado de máquina para reconhecer e traduzir gestos da Língua Brasileira de Sinais (Libras) em tempo real, facilitando a comunicação entre surdos e ouvintes.
+
+> 🎓 Projeto desenvolvido no âmbito do curso **Técnico em Informática** do **Instituto Federal da Bahia (IFBA) - Campus Euclides da Cunha**.
 
 ### 🛠️ Funcionalidades Principais
 - 🎥 **Reconhecimento de Gestos:** Captura de sinais em Libras via câmera.
@@ -50,9 +54,16 @@ O **LibrAI** é um projeto de Inteligência Artificial voltado para a acessibili
 🚧 **Em Desenvolvimento Ativo** 🚧
 
 Atualmente trabalhando em:
-- [X] Coleta e mapeamento de dados de sinais.
+- [ ] Coleta e mapeamento de dados de sinais.
 - [ ] Treinamento do modelo de visão computacional.
 - [ ] Construção da interface do usuário.
+
+---
+
+## 🎓 Contexto Acadêmico / Academic Context
+
+- **Instituição:** Instituto Federal de Educação, Ciência e Tecnologia da Bahia (IFBA) — Campus Euclides da Cunha
+- **Curso:** Ensino Técnico em Informática
 
 ---
 
@@ -67,6 +78,6 @@ Atualmente trabalhando em:
 ---
 
 <p align="center">
-  Developed with 💜 to promote digital accessibility. <br>
-  Desenvolvido com 💜 para promover a acessibilidade digital.
+  Desenvolvido no IFBA Campus Euclides da Cunha 💚 <br>
+  Developed with 💜 to promote digital accessibility.
 </p>
