@@ -12,7 +12,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Literal
 import httpx
 from .sign_storage import add_example, create_sign, list_signs, initialize_database
 from .services.gesture_recognizer import recognizer as gesture_recognizer
@@ -78,8 +79,14 @@ LIVE_SEARCH_TERMS = (
 initialize_database()
 
 
+class ChatHistoryMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class ChatRequest(BaseModel):
     mensagem: str
+    historico: list[ChatHistoryMessage] = Field(default_factory=list)
 
 
 class SignRecognitionRequest(BaseModel):
@@ -268,7 +275,7 @@ async def get_signs() -> list[dict[str, object]]:
 @app.post("/api/signs")
 async def post_sign(request: SignCreateRequest) -> dict[str, object]:
     if not request.nome.strip() or not request.categoria.strip():
-        raise HTTPException(status_code=422, detail="Nome e categoria sao obrigatorios.")
+        raise HTTPException(status_code=422, detail="Nome e categoria são obrigatórios.")
     try:
         return create_sign(request.nome, request.categoria)
     except ValueError as error:
@@ -293,7 +300,7 @@ async def validation_exception_handler(
     return JSONResponse(
         status_code=422,
         content={
-            "detail": "Requisicao invalida. Envie um JSON com mensagem como texto.",
+            "detail": "Requisição inválida. Envie um JSON com mensagem como texto.",
             "erros": jsonable_encoder(error.errors()),
         },
         media_type="application/json; charset=utf-8",
@@ -337,7 +344,10 @@ async def recognize_sign(request: SignRecognitionRequest) -> JSONResponse:
                         "model": OLLAMA_MODEL,
                         "system": (
                             "Você é a LIA. Receba uma glosa de Libras cadastrada e "
-                            "converta-a em português claro. Não invente contexto."
+                            "converta-a em português claro, com ortografia, acentuação "
+                            "e concordância corretas. Revise silenciosamente a frase "
+                            "antes de enviá-la e não use frases fragmentadas. "
+                            "Não invente contexto."
                         ),
                         "prompt": f"Glosa reconhecida: {glosa}",
                         "stream": False,
@@ -349,7 +359,7 @@ async def recognize_sign(request: SignRecognitionRequest) -> JSONResponse:
         except (httpx.RequestError, httpx.HTTPStatusError, ValueError, KeyError) as error:
             raise HTTPException(
                 status_code=503,
-                detail="Nao foi possivel traduzir o sinal com o Ollama.",
+                detail="Não foi possível traduzir o sinal com o Ollama.",
             ) from error
 
     return JSONResponse(
@@ -367,6 +377,10 @@ async def recognize_sign(request: SignRecognitionRequest) -> JSONResponse:
 @app.post("/api/chat")
 async def chat(request: ChatRequest) -> StreamingResponse:
     current_date = date.today().isoformat()
+    history = [
+        item for item in request.historico
+        if item.content.strip()
+    ][-12:]
 
     try:
         async with httpx.AsyncClient() as client:
@@ -378,15 +392,26 @@ async def chat(request: ChatRequest) -> StreamingResponse:
             web_context = "\n\n".join(
                 f"Fonte: {result['titulo']}\n"
                 f"URL: {result['url']}\n"
-                f"Informacoes: {result['conteudo']}"
+                f"Informações: {result['conteudo']}"
                 for result in search_results
             )
-            prompt = request.mensagem
+            history_context = "\n".join(
+                f"{'Usuário' if item.role == 'user' else 'LIA'}: "
+                f"{item.content.strip()}"
+                for item in history
+            )
+            prompt = (
+                "Histórico recente da conversa:\n"
+                f"{history_context or '(início da conversa)'}\n\n"
+                f"Mensagem atual do usuário: {request.mensagem}\n\n"
+                "Responda à mensagem atual usando o histórico somente quando ele "
+                "for relevante."
+            )
             if web_context:
                 prompt = (
                     f"Contexto encontrado em fontes da internet em {current_date}:\n"
                     f"{web_context}\n\n"
-                    f"Pergunta do usuário: {request.mensagem}\n\n"
+                    f"{prompt}\n\n"
                     "Responda usando o contexto quando ele for relevante. Não invente "
                     "dados que não estejam no contexto e cite somente as fontes "
                     "relacionadas ao assunto da pergunta."
@@ -396,7 +421,20 @@ async def chat(request: ChatRequest) -> StreamingResponse:
                 "model": OLLAMA_MODEL,
                 "system": (
                     "Você é a LIA, um assistente virtual focado em acessibilidade "
-                    "e Libras. Responda de forma clara, direta e em português correto. "
+                    "e Libras. Responda exclusivamente em português brasileiro claro, "
+                    "natural e correto. Antes de enviar cada resposta, revise "
+                    "silenciosamente o texto completo e corrija ortografia, acentuação, "
+                    "pontuação, concordância verbal e nominal, regência e ordem das "
+                    "palavras. Nunca envie uma frase fragmentada ou sem sujeito e "
+                    "predicado quando a resposta exigir uma frase completa. "
+                    "Entenda a intenção mesmo quando o usuário digitar com erros, "
+                    "abreviações, falta de acentos ou palavras trocadas; não peça "
+                    "correção se o sentido estiver claro e não repita os erros. "
+                    "Responda perguntas diretamente. Quando o usuário pedir um poema, "
+                    "história, ideia, exemplo ou outro conteúdo criativo, produza o "
+                    "conteúdo solicitado em vez de explicar que não pode fazê-lo. "
+                    "Use o histórico recente para manter continuidade e lembrar fatos "
+                    "já mencionados, sem inventar informações que não estejam nele. "
                     f"A data atual é {current_date}. "
                     "Converse naturalmente e responda somente ao que foi perguntado. "
                     "Não misture assuntos, não introduza futebol, eleições ou outras "
@@ -408,19 +446,21 @@ async def chat(request: ChatRequest) -> StreamingResponse:
                     "eleitorais, seja neutra e diferencie fatos de informações não "
                     "confirmadas. Para outros temas, use a fonte pesquisada relacionada "
                     "ao tema ou diga brevemente quando não houver informação atualizada. "
-                    "Se houver contexto de pesquisa, priorize-o e não invente dados."
+                    "Se houver contexto de pesquisa, use-o apenas para verificar os fatos; "
+                    "não copie erros de português das fontes. Não mostre sua revisão, "
+                    "apenas envie a resposta final corrigida."
                 ),
                 "prompt": prompt,
                 "stream": True,
                 "options": {
-                    "temperature": 0.2,
-                    "num_predict": 256,
+                    "temperature": 0.35,
+                    "num_predict": 512,
                 },
             }
     except httpx.RequestError as error:
         raise HTTPException(
             status_code=503,
-            detail="Nao foi possivel pesquisar na internet.",
+            detail="Não foi possível pesquisar na internet.",
         ) from error
 
     async def stream_response():

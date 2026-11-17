@@ -8,6 +8,8 @@ O projeto foi desenvolvido no curso Técnico em Informática do Instituto Federa
 
 - Chat em português com a LIA usando um modelo Ollama executado localmente.
 - Respostas em streaming, exibidas enquanto o modelo gera o texto.
+- Memória da conversa recente, preservada no navegador para manter o contexto após recarregar a página.
+- Interpretação de erros de digitação, abreviações e pedidos criativos como poemas e histórias.
 - Pesquisa na internet para perguntas sobre assuntos atuais, notícias, preços, clima, resultados e eleições.
 - Reconhecimento de uma mão pela câmera usando MediaPipe Hands.
 - Extração de 21 landmarks da mão e classificação de gestos.

@@ -46,12 +46,12 @@ class SignRecognizer:
         try:
             image_bytes = base64.b64decode(encoded_image, validate=True)
         except (binascii.Error, ValueError) as error:
-            raise ValueError("Imagem Base64 invalida.") from error
+            raise ValueError("Imagem Base64 inválida.") from error
 
         image_array = np.frombuffer(image_bytes, dtype=np.uint8)
         frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
         if frame is None:
-            raise ValueError("Nao foi possivel decodificar a imagem da camera.")
+            raise ValueError("Não foi possível decodificar a imagem da câmera.")
 
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)

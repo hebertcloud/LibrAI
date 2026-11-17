@@ -19,15 +19,31 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000";
 const vlibrasRootAttributes = { vw: "true" } as Record<string, string>;
 const vlibrasAccessAttributes = { "vw-access-button": "true" } as Record<string, string>;
 const vlibrasWrapperAttributes = { "vw-plugin-wrapper": "true" } as Record<string, string>;
+const CHAT_STORAGE_KEY = "@lia-chat-messages";
 
 function App() {
   const [activeTab, setActiveTab] = useState<"chat" | "camera" | "register">("chat");
   const [vlibrasScale, setVlibrasScale] = useState(1);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const savedMessages = localStorage.getItem(CHAT_STORAGE_KEY);
+      if (!savedMessages) return [];
+      const parsed = JSON.parse(savedMessages) as Message[];
+      return Array.isArray(parsed)
+        ? parsed.filter((message) => message?.role && message?.content)
+        : [];
+    } catch {
+      return [];
+    }
+  });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const endOfMessages = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages.slice(-30)));
+  }, [messages]);
 
   useEffect(() => {
     const scriptId = "vlibras-plugin-script";
@@ -110,6 +126,10 @@ function App() {
   async function sendMessage(message: string) {
     if (!message || isLoading) return;
 
+    const history = messages
+      .filter((item) => item.content.trim())
+      .slice(-12)
+      .map(({ role, content }) => ({ role, content }));
     setMessages((current) => [
       ...current,
       { id: Date.now(), role: "user", content: message },
@@ -122,7 +142,7 @@ function App() {
       const response = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json; charset=utf-8" },
-        body: JSON.stringify({ mensagem: message }),
+        body: JSON.stringify({ mensagem: message, historico: history }),
       });
 
       if (!response.ok) {
@@ -182,66 +202,85 @@ function App() {
     <main className="app-shell">
       <aside className="sidebar" aria-label="Navegação principal">
         <div className="brand-lockup">
-          <div className="brand-mark" aria-hidden="true">L</div>
+          <div className="brand-mark" aria-hidden="true">✣</div>
           <div>
             <strong>LIA</strong>
             <span>acessibilidade em Libras</span>
           </div>
         </div>
 
-        <button className="new-chat-button" type="button" onClick={() => setMessages([])}>
+        <button className="new-chat-button" type="button" onClick={() => {
+          setMessages([]);
+          localStorage.removeItem(CHAT_STORAGE_KEY);
+        }}>
           <span aria-hidden="true">+</span>
           Nova conversa
         </button>
 
-        <div className="sidebar-note">
-          <span className="status-dot" aria-hidden="true" />
-          <div>
-            <strong>Conectada</strong>
-            <span>Pronta para conversar</span>
-          </div>
-        </div>
+        <nav className="sidebar-nav" aria-label="Áreas da LIA">
+          <span className="sidebar-label">Workspace</span>
+          <button className={activeTab === "chat" ? "active" : ""} type="button" onClick={() => setActiveTab("chat")}>
+            <span aria-hidden="true">⌁</span> Conversa
+          </button>
+          <button className={activeTab === "camera" ? "active" : ""} type="button" onClick={() => setActiveTab("camera")}>
+            <span aria-hidden="true">◉</span> Reconhecer sinais
+          </button>
+          <button className={activeTab === "register" ? "active" : ""} type="button" onClick={() => setActiveTab("register")}>
+            <span aria-hidden="true">⊞</span> Cadastrar sinais
+          </button>
+        </nav>
 
-        <div className="vlibras-size-control">
-          <span>Tamanho do VLibras</span>
-          <div className="size-options" role="group" aria-label="Tamanho do VLibras">
-            <button type="button" className={vlibrasScale === 0.82 ? "selected" : ""} onClick={() => setVlibrasScale(0.82)} aria-label="VLibras pequeno">A−</button>
-            <button type="button" className={vlibrasScale === 1 ? "selected" : ""} onClick={() => setVlibrasScale(1)} aria-label="VLibras normal">A</button>
-            <button type="button" className={vlibrasScale === 1.2 ? "selected" : ""} onClick={() => setVlibrasScale(1.2)} aria-label="VLibras grande">A+</button>
+        <div className="sidebar-bottom">
+          <div className="sidebar-note">
+            <span className="status-dot" aria-hidden="true" />
+            <div>
+              <strong>Conectada</strong>
+              <span>Ollama local</span>
+            </div>
           </div>
+          <div className="vlibras-size-control">
+            <span>Tamanho do VLibras</span>
+            <div className="size-options" role="group" aria-label="Tamanho do VLibras">
+              <button type="button" className={vlibrasScale === 0.82 ? "selected" : ""} onClick={() => setVlibrasScale(0.82)} aria-label="VLibras pequeno">A−</button>
+              <button type="button" className={vlibrasScale === 1 ? "selected" : ""} onClick={() => setVlibrasScale(1)} aria-label="VLibras normal">A</button>
+              <button type="button" className={vlibrasScale === 1.2 ? "selected" : ""} onClick={() => setVlibrasScale(1.2)} aria-label="VLibras grande">A+</button>
+            </div>
+          </div>
+          <footer className="sidebar-footer">LIA · projeto de acessibilidade</footer>
         </div>
-
-        <footer className="sidebar-footer">LIA · projeto de acessibilidade</footer>
       </aside>
 
       <section className="chat-panel" aria-label="Conversa com a LIA">
         <header className="chat-header">
-          <div>
-            <p className="eyebrow">Assistente virtual</p>
-            <h1>Como posso ajudar?</h1>
+          <div className="workspace-title">
+            <span className="workspace-icon" aria-hidden="true">✣</span>
+            <div>
+              <strong>LIA</strong>
+              <span>Conversa</span>
+            </div>
           </div>
           <div className="live-badge">
             <span className="status-dot" aria-hidden="true" />
-            Ollama local
+            Online
           </div>
         </header>
-
-        <nav className="workspace-tabs" aria-label="Áreas da LIA">
-          <button className={activeTab === "chat" ? "active" : ""} type="button" onClick={() => setActiveTab("chat")}>Conversa</button>
-          <button className={activeTab === "camera" ? "active" : ""} type="button" onClick={() => setActiveTab("camera")}>Reconhecer sinais</button>
-          <button className={activeTab === "register" ? "active" : ""} type="button" onClick={() => setActiveTab("register")}>Cadastrar sinais</button>
-        </nav>
 
         {activeTab === "chat" && <div className="messages" aria-live="polite">
           {messages.length === 0 && (
             <div className="empty-state">
-              <div className="empty-icon" aria-hidden="true">L</div>
-              <p className="eyebrow">Olá, eu sou a LIA</p>
-              <h2>Uma conversa mais acessível começa aqui.</h2>
-              <p className="empty-copy">Digite uma pergunta para conversar com a inteligência artificial. As respostas também podem ser sinalizadas pelo VLibras.</p>
+              <div className="empty-icon" aria-hidden="true">✣</div>
+              <h1>Vamos começar uma conversa</h1>
+              <p className="empty-copy">Pergunte sobre Libras, acessibilidade ou qualquer outro assunto.</p>
               <div className="suggestions" aria-label="Sugestões de perguntas">
-                <button type="button" onClick={() => setInput("O que é Libras?")}>O que é Libras?</button>
-                <button type="button" onClick={() => setInput("Explique acessibilidade digital")}>Acessibilidade digital</button>
+                <button type="button" onClick={() => setInput("O que é Libras?")}>
+                  <span aria-hidden="true">⌁</span><strong>Conhecer Libras</strong><small>Uma introdução rápida</small>
+                </button>
+                <button type="button" onClick={() => setInput("Explique acessibilidade digital")}>
+                  <span aria-hidden="true">◌</span><strong>Acessibilidade digital</strong><small>Conceitos e exemplos</small>
+                </button>
+                <button type="button" onClick={() => setActiveTab("camera")}>
+                  <span aria-hidden="true">◉</span><strong>Reconhecer um sinal</strong><small>Usar a câmera</small>
+                </button>
               </div>
             </div>
           )}
@@ -297,11 +336,12 @@ function App() {
               rows={1}
               disabled={isLoading}
             />
+            <button className="composer-tool" type="button" onClick={() => setActiveTab("camera")} aria-label="Reconhecer sinal pela câmera" title="Reconhecer sinal pela câmera">◉</button>
             <button className="send-button" type="submit" disabled={isLoading || !input.trim()} aria-label="Enviar mensagem">
-              <span aria-hidden="true">↑</span>
+              <span aria-hidden="true">➤</span>
             </button>
           </form>
-          <p className="composer-hint">Enter para enviar · Shift + Enter para quebrar linha</p>
+          <p className="composer-hint">A LIA pode cometer erros. Confira informações importantes.</p>
         </div>}
       </section>
 
