@@ -130,16 +130,40 @@ function App() {
         throw new Error(detail || "A API não conseguiu responder.");
       }
 
-      const data = (await response.json()) as ChatResponse;
+      const assistantId = Date.now() + 1;
       setMessages((current) => [
         ...current,
-        {
-          id: Date.now() + 1,
-          role: "assistant",
-          content: data.resposta,
-          sources: data.fontes,
-        },
+        { id: assistantId, role: "assistant", content: "" },
       ]);
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("A API não enviou uma resposta em streaming.");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let sources: string[] | undefined;
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const chunk = JSON.parse(line) as ChatResponse & { erro?: string; fim?: boolean };
+          if (chunk.erro) throw new Error(chunk.erro);
+          if (chunk.fontes) sources = chunk.fontes;
+          if (chunk.resposta) {
+            setMessages((current) => current.map((item) => item.id === assistantId
+              ? { ...item, content: item.content + chunk.resposta }
+              : item));
+          }
+        }
+        if (done) break;
+      }
+      setMessages((current) => current.map((item) => item.id === assistantId
+        ? { ...item, sources }
+        : item));
     } catch {
       setError("Não foi possível conectar à LIA. Verifique se o backend está ativo.");
     } finally {

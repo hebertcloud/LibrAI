@@ -1,6 +1,7 @@
 from datetime import date
 import asyncio
 import html
+import json
 import os
 import re
 from urllib.parse import quote_plus
@@ -9,7 +10,7 @@ from xml.etree import ElementTree
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
@@ -364,7 +365,7 @@ async def recognize_sign(request: SignRecognitionRequest) -> JSONResponse:
 
 
 @app.post("/api/chat")
-async def chat(request: ChatRequest) -> dict[str, object]:
+async def chat(request: ChatRequest) -> StreamingResponse:
     current_date = date.today().isoformat()
 
     try:
@@ -391,60 +392,55 @@ async def chat(request: ChatRequest) -> dict[str, object]:
                     "relacionadas ao assunto da pergunta."
                 )
 
-            response = await client.post(
-                OLLAMA_URL,
-                json={
-                    "model": OLLAMA_MODEL,
-                    "system": (
-                        "Você é a LIA, um assistente virtual focado em acessibilidade "
-                        "e Libras. Responda de forma clara, direta e em português correto. "
-                        f"A data atual é {current_date}. "
-                        "Converse naturalmente e responda somente ao que foi perguntado. "
-                        "Não misture assuntos, não introduza futebol, eleições ou outras "
-                        "informações sem relação com a pergunta e não use respostas genéricas. "
-                        "Em perguntas factuais, não chute: se não tiver certeza, diga que "
-                        "não tem certeza em vez de inventar uma resposta. "
-                        "Só mencione o Tribunal Superior Eleitoral quando a pergunta for "
-                        "explicitamente sobre eleições brasileiras. Em temas políticos e "
-                        "eleitorais, seja neutra e diferencie fatos de informações não "
-                        "confirmadas. Para outros temas, use a fonte pesquisada relacionada "
-                        "ao tema ou diga brevemente quando não houver informação atualizada. "
-                        "Se houver contexto de pesquisa, priorize-o e não invente dados."
-                    ),
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.2,
-                        "num_predict": 256,
-                    },
+            ollama_payload = {
+                "model": OLLAMA_MODEL,
+                "system": (
+                    "Você é a LIA, um assistente virtual focado em acessibilidade "
+                    "e Libras. Responda de forma clara, direta e em português correto. "
+                    f"A data atual é {current_date}. "
+                    "Converse naturalmente e responda somente ao que foi perguntado. "
+                    "Não misture assuntos, não introduza futebol, eleições ou outras "
+                    "informações sem relação com a pergunta e não use respostas genéricas. "
+                    "Em perguntas factuais, não chute: se não tiver certeza, diga que "
+                    "não tem certeza em vez de inventar uma resposta. "
+                    "Só mencione o Tribunal Superior Eleitoral quando a pergunta for "
+                    "explicitamente sobre eleições brasileiras. Em temas políticos e "
+                    "eleitorais, seja neutra e diferencie fatos de informações não "
+                    "confirmadas. Para outros temas, use a fonte pesquisada relacionada "
+                    "ao tema ou diga brevemente quando não houver informação atualizada. "
+                    "Se houver contexto de pesquisa, priorize-o e não invente dados."
+                ),
+                "prompt": prompt,
+                "stream": True,
+                "options": {
+                    "temperature": 0.2,
+                    "num_predict": 256,
                 },
-                timeout=120.0,
-            )
-            response.raise_for_status()
+            }
     except httpx.RequestError as error:
         raise HTTPException(
             status_code=503,
-            detail="Nao foi possivel conectar ao servidor local do Ollama.",
-        ) from error
-    except httpx.HTTPStatusError as error:
-        raise HTTPException(
-            status_code=502,
-            detail="O servidor do Ollama retornou um erro.",
+            detail="Nao foi possivel pesquisar na internet.",
         ) from error
 
-    try:
-        data = response.json()
-    except ValueError as error:
-        raise HTTPException(
-            status_code=502,
-            detail="O Ollama retornou uma resposta JSON invalida.",
-        ) from error
+    async def stream_response():
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                async with client.stream("POST", OLLAMA_URL, json=ollama_payload) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if line:
+                            data = json.loads(line)
+                            if data.get("response"):
+                                yield json.dumps({"resposta": data["response"]}) + "\n"
+                    yield json.dumps({
+                        "fim": True,
+                        "fontes": [result["url"] for result in search_results],
+                    }) + "\n"
+        except (httpx.RequestError, httpx.HTTPStatusError, ValueError, KeyError) as error:
+            yield json.dumps({"erro": str(error)}) + "\n"
 
-    return JSONResponse(
-        content={
-            "resposta": data["response"],
-            "enviar_vlibras": True,
-            "fontes": [result["url"] for result in search_results],
-        },
-        media_type="application/json; charset=utf-8",
+    return StreamingResponse(
+        stream_response(),
+        media_type="application/x-ndjson; charset=utf-8",
     )
