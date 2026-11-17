@@ -17,6 +17,16 @@ O projeto foi desenvolvido no curso Técnico em Informática do Instituto Federa
 - Tradução visual das respostas por meio do widget VLibras.
 - Interface React responsiva com abas para conversa, reconhecimento e cadastro.
 
+
+## Aplicação online
+
+https://github.com/user-attachments/assets/21cb4b15-be8c-4dbc-a6b7-e0df2992ffd4
+
+
+
+
+
+
 ## Tecnologias utilizadas
 
 ### Backend
