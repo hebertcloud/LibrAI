@@ -20,7 +20,8 @@ O projeto foi desenvolvido no curso Técnico em Informática do Instituto Federa
 
 ## Aplicação online
 
-https://github.com/user-attachments/assets/21cb4b15-be8c-4dbc-a6b7-e0df2992ffd4
+[https://github.com/user-attachments/assets/21cb4b15-be8c-4dbc-a6b7-e0df2992ffd4](https://github.com/user-attachments/assets/fd20188a-4790-45be-8aaf-0eb5b9f8dfe7
+)
 
 
 
